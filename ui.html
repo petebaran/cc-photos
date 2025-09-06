@@ -1,0 +1,691 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>People CDN Browser</title>
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <style>
+    :root { 
+      --bg:#0c0c0f; --panel:#111216; --line:#1e1f26; --fg:#f2f2f3; --muted:#a1a1aa; 
+      --brand:#18a0fb; --error:#ff6b6b; --success:#4ade80; --overlay:rgba(0,0,0,0.6);
+    }
+    * { box-sizing: border-box; }
+    body { margin:0; font:12px/1.4 Inter, ui-sans-serif, system-ui; color:var(--fg); background:var(--bg); }
+    
+    /* Header */
+    header { padding:12px; background:var(--panel); border-bottom:1px solid var(--line); }
+    .row { display:flex; gap:12px; align-items:center; }
+    label { color:var(--muted); font-weight:500; }
+    select, input[type="checkbox"] { background:#13141a; border:1px solid var(--line); color:var(--fg); border-radius:6px; }
+    select { padding:8px; }
+    input[type="checkbox"] { width:18px; height:18px; accent-color:var(--brand); }
+    select:focus, input:focus { outline:none; border-color:var(--brand); }
+    button { background:#1a1b22; border:1px solid var(--line); color:var(--fg); border-radius:8px; padding:8px 12px; cursor:pointer; transition:all 0.2s; }
+    button:hover:not(:disabled) { background:#252631; }
+    button.primary { background:var(--brand); border-color:var(--brand); color:#fff; font-weight:600; }
+    button.primary:hover:not(:disabled) { background:#1589d4; }
+    button:disabled { opacity:.5; cursor:not-allowed; }
+    
+    #status { color:var(--muted); margin-top:6px; display:block; font-size:11px; }
+    #status.error { color:var(--error); }
+    #status.success { color:var(--success); }
+
+    /* Pinterest-style masonry grid with proper scrolling */
+    #grid {
+      height: 420px; 
+      overflow-y: scroll; 
+      overflow-x: hidden; 
+      padding: 12px;
+      position: relative;
+    }
+    
+    .masonry-container {
+      position: relative;
+      width: 100%;
+    }
+    
+    /* Dark scrollbar */
+    #grid::-webkit-scrollbar { width: 8px; }
+    #grid::-webkit-scrollbar-track { background: #111216; }
+    #grid::-webkit-scrollbar-thumb { background: #2a2a2a; border-radius: 4px; }
+    #grid::-webkit-scrollbar-thumb:hover { background: #3a3a3a; }
+    
+    .card { 
+      position: absolute; 
+      border-radius: 12px; 
+      overflow: hidden; 
+      background: #0e0f14; 
+      cursor: pointer; 
+      transition: all 0.2s ease;
+      border: 2px solid transparent;
+    }
+    
+    .card:hover { transform: translateY(-2px); box-shadow: 0 8px 30px rgba(0,0,0,0.3); }
+    .card.sel { border-color: var(--brand); box-shadow: 0 0 0 3px rgba(24,160,251,0.2); }
+    .card.loading { opacity: 0.7; }
+    .card.error { border-color: var(--error); opacity: 0.6; }
+    
+    .card img { 
+      width: 100%; 
+      height: auto; 
+      display: block; 
+      transition: opacity 0.3s ease;
+      border-radius: 8px;
+    }
+    .card.loading img { opacity: 0.5; }
+    
+    .card-overlay { 
+      position: absolute; 
+      inset: 0; 
+      background: var(--overlay); 
+      opacity: 0; 
+      transition: opacity 0.2s ease;
+      display: flex; 
+      align-items: center; 
+      justify-content: center;
+    }
+    .card:hover .card-overlay { opacity: 1; }
+    .card.sel .card-overlay { opacity: 1; }
+    
+    .check { 
+      width: 24px; 
+      height: 24px; 
+      background: var(--brand); 
+      border-radius: 6px; 
+      display: flex; 
+      align-items: center; 
+      justify-content: center;
+      color: #fff; 
+      font-size: 14px; 
+      font-weight: bold;
+      transition: all 0.2s ease; 
+      transform: scale(0.8);
+    }
+    .card.sel .check { transform: scale(1); }
+    
+    .loading-placeholder {
+      width: 100%; 
+      aspect-ratio: 1; /* Square placeholder until we know the real image size */
+      background: linear-gradient(90deg, #1a1b22 25%, #252631 50%, #1a1b22 75%);
+      background-size: 200% 100%; 
+      animation: shimmer 2s infinite;
+      border-radius: 8px;
+    }
+    @keyframes shimmer { 0% { background-position: 200% 0; } 100% { background-position: -200% 0; } }
+    
+    .error-text { 
+      position: absolute; 
+      inset: 0; 
+      display: flex; 
+      align-items: center; 
+      justify-content: center; 
+      background: rgba(255,107,107,0.1); 
+      color: var(--error); 
+      font-size: 10px; 
+      text-align: center; 
+      padding: 8px;
+      border-radius: 8px;
+    }
+    
+    .image-info {
+      position: absolute; 
+      bottom: 8px; 
+      left: 8px; 
+      right: 8px;
+      background: rgba(0,0,0,0.7); 
+      padding: 4px 8px; 
+      border-radius: 6px;
+      font-size: 10px; 
+      color: #fff; 
+      opacity: 0; 
+      transition: opacity 0.2s;
+      backdrop-filter: blur(4px);
+    }
+    .card:hover .image-info { opacity: 1; }
+
+    /* Footer */
+    footer { 
+      display: flex; 
+      justify-content: space-between; 
+      align-items: center; 
+      gap: 8px; 
+      padding: 12px; 
+      border-top: 1px solid var(--line); 
+      background: var(--panel); 
+    }
+    .meta { color: var(--muted); font-size: 11px; }
+    .actions { display: flex; gap: 8px; }
+
+    /* Empty state */
+    .empty-state { 
+      display: flex; 
+      flex-direction: column; 
+      align-items: center; 
+      justify-content: center; 
+      height: 300px; 
+      color: var(--muted); 
+      text-align: center; 
+    }
+    .empty-state h3 { margin: 0 0 8px 0; font-size: 14px; font-weight: 600; }
+    .empty-state p { margin: 0; font-size: 12px; opacity: 0.8; }
+    
+    /* Loading states */
+    .grid-loading { 
+      display: flex; 
+      align-items: center; 
+      justify-content: center; 
+      height: 200px; 
+      color: var(--muted); 
+    }
+    .spinner { 
+      width: 20px; 
+      height: 20px; 
+      border: 2px solid var(--line); 
+      border-top: 2px solid var(--brand); 
+      border-radius: 50%; 
+      animation: spin 1s linear infinite; 
+      margin-right: 8px;
+    }
+    @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+    
+    .selection-badge {
+      background: var(--brand); 
+      color: #fff; 
+      font-size: 10px; 
+      font-weight: 600;
+      padding: 2px 6px; 
+      border-radius: 10px; 
+      margin-left: 4px;
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="row">
+      <label>Folder</label>
+      <select id="category"></select>
+      <label>Original Size</label>
+      <input type="checkbox" id="useOriginal" checked />
+      <button id="refresh">Refresh</button>
+    </div>
+    <small id="status">Ready to browse photos</small>
+  </header>
+
+  <div id="grid"></div>
+
+  <footer>
+    <div class="meta">
+      <span id="count">0 selected</span>
+      <span id="total-info"></span>
+    </div>
+    <div class="actions">
+      <button id="selectAll">Select all</button>
+      <button id="clearSel">Clear</button>
+      <button id="place" class="primary" disabled>Place selected</button>
+    </div>
+  </footer>
+
+  <script>
+    // Configuration
+    var CDN_BASE = "https://d3a10mptdebtwd.cloudfront.net/";
+    var FOLDERS = ["Diego","Elena","Marcus","Omar","Sophia"];
+    function INDEX_URL(name){ return CDN_BASE + name + ".index.json"; }
+
+    // State
+    var catalog = new Map();
+    var selected = new Set();
+    var current = "All";
+    var isLoading = false;
+
+    // Helpers
+    function $(id){ return document.getElementById(id); }
+    function status(text, type){ 
+      var el = $("status");
+      el.textContent = text;
+      el.className = type || "";
+      console.log("[STATUS]", text);
+    }
+    function post(msg){ 
+      console.log("[SEND]", msg);
+      parent.postMessage({ pluginMessage: msg }, "*"); 
+    }
+    function setSelectedCount(n){ 
+      var countEl = $("count");
+      countEl.innerHTML = n + " selected" + (n > 0 ? '<span class="selection-badge">' + n + '</span>' : '');
+      $("place").disabled = n === 0; 
+    }
+    function updateTotalInfo(shown, total) {
+      var info = shown === total ? total + " photos" : "Showing " + shown + " of " + total + " photos";
+      $("total-info").textContent = " • " + info;
+    }
+
+    // Initialize
+    init();
+
+    function init(){
+      console.log("[INIT] Starting People CDN Browser");
+      populateCategorySelect();
+      
+      status("Loading photo catalog...");
+      refreshCatalog(true)
+        .then(function(){
+          renderGrid();
+          status("Ready to browse photos");
+        })
+        .catch(function(err){
+          status("Failed to load catalog: " + err.message, "error");
+        });
+        
+      wireUI();
+    }
+
+    function wireUI(){
+      $("refresh").onclick = function(){ 
+        if (isLoading) return;
+        status("Refreshing catalog...");
+        refreshCatalog(true)
+          .then(function(){
+            renderGrid();
+            status("Catalog refreshed");
+          })
+          .catch(function(err){
+            status("Refresh failed: " + err.message, "error");
+          });
+      };
+      
+      $("category").onchange = function(){ 
+        current = $("category").value;
+        renderGrid(); 
+      };
+      
+      $("selectAll").onclick = function(){
+        var cards = document.querySelectorAll(".card:not(.error):not(.loading)");
+        var newSelections = 0;
+        
+        for (var i = 0; i < cards.length; i++) {
+          var card = cards[i];
+          if (!card.classList.contains("sel")) {
+            selectCard(card, card.dataset.url);
+            newSelections++;
+          }
+        }
+        
+        status("Selected " + newSelections + " additional images");
+      };
+      
+      $("clearSel").onclick = function(){
+        clearSelection();
+        status("Selection cleared");
+      };
+      
+      $("place").onclick = function(){
+        var urls = Array.from(selected);
+        
+        if (!urls.length) {
+          status("No images selected", "error");
+          return;
+        }
+        
+        var useOriginal = $("useOriginal").checked;
+        
+        $("place").disabled = true;
+        status("Processing " + urls.length + " image(s) at " + (useOriginal ? "original size" : "scaled size") + "...");
+        
+        post({ 
+          type: "place-images", 
+          urls: urls, 
+          useOriginalSize: useOriginal
+        });
+      };
+      
+      // Message handler
+      window.onmessage = function(e){
+        var msg = e.data.pluginMessage; 
+        if (!msg) return;
+        
+        if (msg.type === "progress") {
+          if (msg.stage === "received") {
+            status("Processing " + msg.total + " image(s)...");
+          } else if (msg.stage === "download") {
+            var current = msg.currentFile ? " (" + msg.currentFile + ")" : "";
+            status("Processing " + (msg.done + 1) + "/" + msg.total + current);
+          }
+        } else if (msg.type === "placed") {
+          status("Successfully placed " + msg.count + " image(s) in Figma!", "success");
+          $("place").disabled = false;
+          
+          // Auto-clear after success
+          setTimeout(function(){
+            clearSelection();
+          }, 2000);
+          
+        } else if (msg.type === "error") {
+          status("Error: " + msg.message, "error");
+          $("place").disabled = false;
+        }
+      };
+      
+      // Handle window resize for responsive masonry
+      var resizeTimer;
+      window.onresize = function() {
+        clearTimeout(resizeTimer);
+        resizeTimer = setTimeout(function() {
+          var newColumnCount = getColumnCount();
+          if (newColumnCount !== columnCount) {
+            renderGrid(); // Re-render with new column count
+          }
+        }, 250);
+      };
+    }
+
+    function populateCategorySelect(){
+      var select = $("category");
+      select.innerHTML = "";
+      select.appendChild(new Option("All photos", "All"));
+      
+      for (var i = 0; i < FOLDERS.length; i++) {
+        select.appendChild(new Option(FOLDERS[i], FOLDERS[i]));
+      }
+      
+      select.value = "All";
+    }
+
+    function updateCountsInDropdown(){
+      var select = $("category");
+      
+      for (var i = 0; i < select.options.length; i++){
+        var option = select.options[i];
+        
+        if (option.value === "All"){
+          var total = 0; 
+          catalog.forEach(function(entry){ total += entry.files.length; });
+          option.textContent = "All photos (" + total + ")";
+        } else {
+          var entry = catalog.get(option.value);
+          var count = entry ? entry.files.length : 0;
+          option.textContent = option.value + " (" + count + ")";
+        }
+      }
+    }
+
+    function refreshCatalog(force){
+      isLoading = true;
+      
+      var promises = FOLDERS.map(function(folderName){
+        if (!force && catalog.has(folderName)) {
+          return Promise.resolve();
+        }
+        
+        return fetch(INDEX_URL(folderName))
+          .then(function(response){ 
+            if (!response.ok) throw new Error("HTTP " + response.status + " for " + folderName); 
+            return response.text(); 
+          })
+          .then(function(text){
+            var cleanText = text.replace(/^\uFEFF/, '');
+            var index = JSON.parse(cleanText);
+            
+            var prefix = (index.prefix || folderName + "/").replace(/^\//, "").replace(/\/?$/, "/");
+            var files = Array.isArray(index.files) ? 
+              index.files.filter(function(filename){ 
+                return /\.(png|jpe?g|webp|avif)$/i.test(filename); 
+              }) : [];
+            
+            catalog.set(folderName, { prefix: prefix, files: files });
+          })
+          .catch(function(error){
+            console.error("[CATALOG] Failed:", folderName, error);
+            catalog.set(folderName, { prefix: folderName + "/", files: [] });
+          });
+      });
+      
+      return Promise.all(promises)
+        .then(function(){ 
+          updateCountsInDropdown();
+          isLoading = false;
+        });
+    }
+
+    function buildUrlsForCategory(categoryName){
+      if (categoryName === "All"){
+        var allUrls = [];
+        catalog.forEach(function(entry){ 
+          var folderUrls = entry.files.map(function(filename){ 
+            return CDN_BASE + entry.prefix + filename; 
+          });
+          allUrls = allUrls.concat(folderUrls);
+        });
+        return allUrls;
+      }
+      
+      var entry = catalog.get(categoryName);
+      if (!entry) return [];
+      
+      return entry.files.map(function(filename){ 
+        return CDN_BASE + entry.prefix + filename; 
+      });
+    }
+
+    // Masonry layout variables
+    var masonryColumns = [];
+    var columnWidth = 0;
+    var columnCount = 3;
+    
+    function getColumnCount() {
+      var gridWidth = $("grid").offsetWidth - 24; // Account for padding
+      if (gridWidth < 350) return 1;
+      if (gridWidth < 450) return 2;
+      if (gridWidth < 600) return 3;
+      if (gridWidth < 750) return 4;
+      return 5;
+    }
+    
+    function initMasonry() {
+      var grid = $("grid");
+      columnCount = getColumnCount();
+      columnWidth = Math.floor((grid.offsetWidth - 24 - (columnCount - 1) * 12) / columnCount);
+      
+      masonryColumns = [];
+      for (var i = 0; i < columnCount; i++) {
+        masonryColumns[i] = 0; // Track height of each column
+      }
+    }
+    
+    function getShortestColumn() {
+      var shortest = 0;
+      for (var i = 1; i < masonryColumns.length; i++) {
+        if (masonryColumns[i] < masonryColumns[shortest]) {
+          shortest = i;
+        }
+      }
+      return shortest;
+    }
+    
+    function renderGrid(){
+      var grid = $("grid");
+      grid.innerHTML = "";
+      clearSelection();
+      
+      // Reset pending images array
+      pendingImages = [];
+      
+      if (isLoading) {
+        grid.innerHTML = '<div class="grid-loading"><div class="spinner"></div>Loading photos...</div>';
+        return;
+      }
+      
+      var urls = buildUrlsForCategory(current);
+      
+      if (urls.length === 0) {
+        grid.innerHTML = '<div class="empty-state"><h3>No photos found</h3><p>Try refreshing or selecting a different folder.</p></div>';
+        updateTotalInfo(0, 0);
+        return;
+      }
+      
+      updateTotalInfo(urls.length, urls.length);
+      
+      // Create masonry container
+      var container = document.createElement("div");
+      container.className = "masonry-container";
+      grid.appendChild(container);
+      
+      // Initialize masonry layout
+      initMasonry();
+      
+      // Add cards with masonry positioning
+      for (var i = 0; i < urls.length; i++) {
+        createImageCard(urls[i], container);
+      }
+    }
+    
+    // Remove ensureScrollable function - masonry layout handles this naturally
+
+    var pendingImages = [];
+    
+    function createImageCard(url, container){
+      var filename = url.split("/").pop();
+      
+      var card = document.createElement("div");
+      card.className = "card loading";
+      card.dataset.url = url;
+      card.style.width = columnWidth + "px";
+      
+      // Placeholder while loading
+      var placeholder = document.createElement("div");
+      placeholder.className = "loading-placeholder";
+      card.appendChild(placeholder);
+      
+      var img = document.createElement("img");
+      img.loading = "lazy";
+      img.alt = filename;
+      
+      var overlay = document.createElement("div");
+      overlay.className = "card-overlay";
+      
+      var check = document.createElement("div");
+      check.className = "check";
+      check.innerHTML = "✓";
+      overlay.appendChild(check);
+      
+      var info = document.createElement("div");
+      info.className = "image-info";
+      info.textContent = filename;
+      
+      card.appendChild(img);
+      card.appendChild(overlay);
+      card.appendChild(info);
+      
+      // Store for positioning after load
+      pendingImages.push({
+        card: card,
+        img: img,
+        placeholder: placeholder,
+        url: url,
+        loaded: false
+      });
+      
+      // Image loading
+      img.onload = function(){
+        card.classList.remove("loading");
+        placeholder.style.display = "none";
+        img.style.opacity = "1";
+        
+        // Mark as loaded and reposition all images
+        for (var i = 0; i < pendingImages.length; i++) {
+          if (pendingImages[i].img === img) {
+            pendingImages[i].loaded = true;
+            break;
+          }
+        }
+        
+        repositionMasonry();
+      };
+      
+      img.onerror = function(){
+        card.classList.remove("loading");
+        card.classList.add("error");
+        placeholder.innerHTML = '<div class="error-text">Failed to load</div>';
+        
+        // Mark as loaded (even if error) and reposition
+        for (var i = 0; i < pendingImages.length; i++) {
+          if (pendingImages[i].img === img) {
+            pendingImages[i].loaded = true;
+            break;
+          }
+        }
+        
+        repositionMasonry();
+      };
+      
+      // Click handler
+      card.onclick = function(){
+        if (card.classList.contains("error") || card.classList.contains("loading")) {
+          return;
+        }
+        
+        if (card.classList.contains("sel")) {
+          deselectCard(card, url);
+        } else {
+          selectCard(card, url);
+        }
+      };
+      
+      // Set source after handlers
+      img.src = url;
+      container.appendChild(card);
+    }
+    
+    function repositionMasonry() {
+      // Reset column heights
+      for (var i = 0; i < masonryColumns.length; i++) {
+        masonryColumns[i] = 0;
+      }
+      
+      // Position all loaded images
+      for (var i = 0; i < pendingImages.length; i++) {
+        var item = pendingImages[i];
+        if (item.loaded) {
+          var columnIndex = getShortestColumn();
+          var x = columnIndex * (columnWidth + 12);
+          var y = masonryColumns[columnIndex];
+          
+          item.card.style.left = x + "px";
+          item.card.style.top = y + "px";
+          
+          // Add actual card height to column
+          var cardHeight = item.card.offsetHeight;
+          masonryColumns[columnIndex] += cardHeight + 12;
+        }
+      }
+      
+      // Update container height
+      var container = document.querySelector(".masonry-container");
+      if (container) {
+        var maxHeight = Math.max.apply(Math, masonryColumns);
+        container.style.height = maxHeight + "px";
+      }
+    }
+
+    function selectCard(card, url) {
+      card.classList.add("sel");
+      selected.add(url);
+      setSelectedCount(selected.size);
+    }
+
+    function deselectCard(card, url) {
+      card.classList.remove("sel");
+      selected.delete(url);
+      setSelectedCount(selected.size);
+    }
+
+    function clearSelection() {
+      selected.clear();
+      var selectedCards = document.querySelectorAll(".card.sel");
+      for (var i = 0; i < selectedCards.length; i++) {
+        selectedCards[i].classList.remove("sel");
+      }
+      setSelectedCount(0);
+    }
+  </script>
+</body>
+</html>

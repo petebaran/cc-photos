@@ -1,0 +1,16 @@
+{
+  "name": "People CDN Browser",
+  "id": "people-cdn-browser",
+  "api": "1.0.0",
+  "main": "code.js",
+  "ui": "ui.html",
+  "editorType": ["figma"],
+  "networkAccess": {
+    "allowedDomains": [
+      "https://d3a10mptdebtwd.cloudfront.net"
+    ]
+  },
+  "permissions": [
+    "currentuser"
+  ]
+}
