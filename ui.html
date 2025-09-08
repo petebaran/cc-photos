@@ -7,7 +7,7 @@
   <style>
     :root { 
       --bg:#0c0c0f; --panel:#111216; --line:#1e1f26; --fg:#f2f2f3; --muted:#a1a1aa; 
-      --brand:#18a0fb; --error:#ff6b6b; --success:#4ade80; --overlay:rgba(0,0,0,0.6);
+      --brand:#c08415; --error:#ff6b6b; --success:#4ade80; --overlay:rgba(0,0,0,0.6);
     }
     * { box-sizing: border-box; }
     body { margin:0; font:12px/1.4 Inter, ui-sans-serif, system-ui; color:var(--fg); background:var(--bg); }
@@ -23,7 +23,7 @@
     button { background:#1a1b22; border:1px solid var(--line); color:var(--fg); border-radius:8px; padding:8px 12px; cursor:pointer; transition:all 0.2s; }
     button:hover:not(:disabled) { background:#252631; }
     button.primary { background:var(--brand); border-color:var(--brand); color:#fff; font-weight:600; }
-    button.primary:hover:not(:disabled) { background:#1589d4; }
+    button.primary:hover:not(:disabled) { background:#9b6b0b; }
     button:disabled { opacity:.5; cursor:not-allowed; }
     
     #status { color:var(--muted); margin-top:6px; display:block; font-size:11px; }
@@ -207,8 +207,8 @@
       <label>Sort</label>
       <select id="sortOrder">
         <option value="default">Default</option>
-        <option value="recent">Recent first</option>
-        <option value="oldest">Oldest first</option>
+        <option value="recent">Recent</option>
+        <option value="oldest">Oldest</option>
       </select>
       <button id="refresh">Refresh</button>
     </div>
@@ -259,8 +259,7 @@
       $("place").disabled = n === 0; 
     }
     function updateTotalInfo(shown, total) {
-      var info = shown === total ? total + " photos" : "Showing " + shown + " of " + total + " photos";
-      $("total-info").textContent = " • " + info;
+      $("total-info").textContent = "";
     }
 
     // Initialize
@@ -357,7 +356,7 @@
             status("Processing " + (msg.done + 1) + "/" + msg.total + current);
           }
         } else if (msg.type === "placed") {
-          status("Successfully placed " + msg.count + " image(s) in Figma!", "success");
+          status("Successfully placed " + msg.count + " image(s)", "success");
           $("place").disabled = false;
           
           // Auto-clear after success
@@ -636,13 +635,8 @@
       check.innerHTML = "✓";
       overlay.appendChild(check);
       
-      var info = document.createElement("div");
-      info.className = "image-info";
-      info.textContent = filename;
-      
       card.appendChild(img);
       card.appendChild(overlay);
-      card.appendChild(info);
       
       // Store for positioning after load
       pendingImages.push({

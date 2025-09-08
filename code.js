@@ -7,7 +7,7 @@ var SIZE_CACHE_PREFIX = "cdn-size:";
 
 console.log("People CDN Browser v4.0 - Original Size Support");
 
-figma.showUI(__html__, { width: 460, height: 620 });
+figma.showUI(__html__, { width: 460, height: 560 });
 
 figma.ui.onmessage = async function (msg) {
   try {
