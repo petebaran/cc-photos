@@ -204,8 +204,12 @@
     <div class="row">
       <label>Folder</label>
       <select id="category"></select>
-      <label>Original Size</label>
-      <input type="checkbox" id="useOriginal" checked />
+      <label>Sort</label>
+      <select id="sortOrder">
+        <option value="default">Default</option>
+        <option value="recent">Recent first</option>
+        <option value="oldest">Oldest first</option>
+      </select>
       <button id="refresh">Refresh</button>
     </div>
     <small id="status">Ready to browse photos</small>
@@ -298,6 +302,10 @@
         renderGrid(); 
       };
       
+      $("sortOrder").onchange = function(){
+        renderGrid();
+      };
+      
       $("selectAll").onclick = function(){
         var cards = document.querySelectorAll(".card:not(.error):not(.loading)");
         var newSelections = 0;
@@ -326,15 +334,13 @@
           return;
         }
         
-        var useOriginal = $("useOriginal").checked;
-        
         $("place").disabled = true;
-        status("Processing " + urls.length + " image(s) at " + (useOriginal ? "original size" : "scaled size") + "...");
+        status("Processing " + urls.length + " image(s) at original size...");
         
         post({ 
           type: "place-images", 
           urls: urls, 
-          useOriginalSize: useOriginal
+          useOriginalSize: true
         });
       };
       
@@ -447,6 +453,8 @@
     }
 
     function buildUrlsForCategory(categoryName){
+      var urls;
+      
       if (categoryName === "All"){
         var allUrls = [];
         catalog.forEach(function(entry){ 
@@ -455,15 +463,76 @@
           });
           allUrls = allUrls.concat(folderUrls);
         });
-        return allUrls;
+        urls = allUrls;
+      } else {
+        var entry = catalog.get(categoryName);
+        if (!entry) return [];
+        
+        urls = entry.files.map(function(filename){ 
+          return CDN_BASE + entry.prefix + filename; 
+        });
       }
       
-      var entry = catalog.get(categoryName);
-      if (!entry) return [];
+      // Apply sorting
+      return sortUrls(urls);
+    }
+    
+    function sortUrls(urls) {
+      var sortOrder = $("sortOrder").value;
       
-      return entry.files.map(function(filename){ 
-        return CDN_BASE + entry.prefix + filename; 
+      if (sortOrder === "default") {
+        return urls;
+      }
+      
+      // Create array of objects with url and extracted sort key
+      var urlsWithKeys = urls.map(function(url) {
+        var filename = url.split("/").pop().toLowerCase();
+        var sortKey = extractSortKey(filename);
+        return { url: url, sortKey: sortKey, filename: filename };
       });
+      
+      // Sort based on sort key
+      urlsWithKeys.sort(function(a, b) {
+        if (sortOrder === "recent") {
+          return b.sortKey - a.sortKey; // Descending (recent first)
+        } else if (sortOrder === "oldest") {
+          return a.sortKey - b.sortKey; // Ascending (oldest first)
+        }
+        return 0;
+      });
+      
+      // Return just the URLs
+      return urlsWithKeys.map(function(item) { return item.url; });
+    }
+    
+    function extractSortKey(filename) {
+      // Try to extract a timestamp or number from filename for sorting
+      // Common patterns: IMG_20231201_123456.jpg, photo_1701234567.jpg, 001.jpg, etc.
+      
+      // Look for timestamp patterns (YYYYMMDD, YYYYMMDD_HHMMSS, unix timestamp)
+      var timestampMatch = filename.match(/(\d{8}_\d{6}|\d{8}|\d{10,13})/);
+      if (timestampMatch) {
+        var timestamp = timestampMatch[1];
+        if (timestamp.length === 8) {
+          // YYYYMMDD format
+          return parseInt(timestamp);
+        } else if (timestamp.length === 15) {
+          // YYYYMMDD_HHMMSS format
+          return parseInt(timestamp.replace('_', ''));
+        } else if (timestamp.length >= 10) {
+          // Unix timestamp
+          return parseInt(timestamp);
+        }
+      }
+      
+      // Look for sequential numbers
+      var numberMatch = filename.match(/(\d+)/);
+      if (numberMatch) {
+        return parseInt(numberMatch[1]);
+      }
+      
+      // Fall back to filename alphabetical ordering
+      return filename.charCodeAt(0) * 1000 + (filename.charCodeAt(1) || 0);
     }
 
     // Masonry layout variables
