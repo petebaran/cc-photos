@@ -1,10 +1,11 @@
 {
-  "name": "People CDN Browser",
-  "id": "people-cdn-browser",
+  "name": "Capital Assets",
+  "id": "1547242741175084717",
   "api": "1.0.0",
   "main": "code.js",
   "ui": "ui.html",
   "editorType": ["figma"],
+  "documentAccess": "dynamic-page",
   "networkAccess": {
     "allowedDomains": [
       "https://d3a10mptdebtwd.cloudfront.net"
