@@ -30,6 +30,43 @@
     #status.error { color:var(--error); }
     #status.success { color:var(--success); }
 
+    /* Character info box */
+    #character-info {
+      display: none;
+      padding: 12px;
+      background: var(--panel);
+      border-bottom: 1px solid var(--line);
+    }
+    #character-info.visible { display: block; }
+    .char-header {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 6px;
+    }
+    .char-name {
+      font-weight: 600;
+      font-size: 13px;
+      color: var(--fg);
+    }
+    .char-role {
+      color: var(--brand);
+      font-size: 11px;
+      font-weight: 500;
+    }
+    .char-age {
+      color: var(--muted);
+      font-size: 11px;
+      background: #1a1b22;
+      padding: 2px 6px;
+      border-radius: 4px;
+    }
+    .char-description {
+      color: var(--muted);
+      font-size: 11px;
+      line-height: 1.5;
+    }
+
     /* Pinterest-style masonry grid with proper scrolling */
     #grid {
       height: 420px; 
@@ -215,6 +252,15 @@
     <small id="status">Ready to browse photos</small>
   </header>
 
+  <div id="character-info">
+    <div class="char-header">
+      <span class="char-name" id="char-name"></span>
+      <span class="char-role" id="char-role"></span>
+      <span class="char-age" id="char-age"></span>
+    </div>
+    <div class="char-description" id="char-description"></div>
+  </div>
+
   <div id="grid"></div>
 
   <footer>
@@ -232,8 +278,50 @@
   <script>
     // Configuration
     var CDN_BASE = "https://d3a10mptdebtwd.cloudfront.net/";
-    var FOLDERS = ["Amir", "Carmen", "David", "Diego", "Elena", "Hiroshi", "Isabella", "James", "Khalid", "Layla", "Li-Chen", "Marcus", "Mei-Lin", "Mike", "Monica", "Omar", "Rafael", "Sarah", "Sophia", "Wei-Ming"];
+    var FOLDERS = ["Amir", "Carmen", "David", "Diego", "Elena", "Hiroshi", "Isabella", "Jake", "James", "Khalid", "Layla", "Li-Chen", "Marcus", "Mei-Lin", "Mike", "Monica", "Omar", "Rafael", "Sarah", "Sophia", "Wei-Ming"];
     function INDEX_URL(name){ return CDN_BASE + name + ".index.json"; }
+
+    // Character descriptions data
+    var CHARACTER_DATA = {
+      "Amir": { role: "Associate", age: 29, description: "Middle Eastern male with olive skin, contemporary style. Smart casual startup-to-corporate crossover. Best for: tech-forward content, growth narratives, fintech positioning." },
+      "Carmen": { role: "Strategic Advisor", age: 39, description: "Colombian female with warm skin, soft natural waves. Architectural black suits with Colombian elegance. Best for: Colombian market, LATAM strategic positioning." },
+      "David": { role: "Strategic Director", age: 47, description: "Singaporean male with multicultural features, silver-threaded hair. International business styling. Best for: Singapore market, global financial messaging, cross-cultural appeal." },
+      "Diego": { role: "Dynamic Strategist", age: 41, description: "Latino male with Mexican heritage, bronze skin, silver-threaded hair. Contemporary Latin tailoring. Best for: LATAM leadership, dynamic energy, market movement." },
+      "Elena": { role: "Creative Visionary", age: 27, description: "Latina female with soft red-blonde curls, hazel-green eyes. Bohemian luxury with structured elements. Best for: creative interpretations, artistic-financial bridge." },
+      "Hiroshi": { role: "Innovation Strategist", age: 49, description: "Japanese male with angular features, salt-and-pepper hair, premium eyewear. Minimalist precision tailoring. Best for: innovation, Asian markets, tech-forward narratives." },
+      "Isabella": { role: "Strategic Executive", age: 41, description: "Mexican female with warm brown skin, wavy dark hair. Sharp black power suits with bronze amber silk. Best for: LATAM executive positioning, cultural bridge building." },
+      "Jake": { role: "Tech Trader", age: 31, description: "Caucasian male with sandy blonde hair, groomed mustache, blue-gray eyes. Smart-casual premium blazer style. Best for: tech/crypto content, Scandinavian appeal, millennial-Gen Z bridge." },
+      "James": { role: "Strategic Authority", age: 47, description: "Black male with strong features, silver-touched temples. Architectural charcoal suits. Best for: executive authority, corporate leadership, international business." },
+      "Khalid": { role: "Regional Director", age: 43, description: "Lebanese male with olive skin, silver-threaded beard. Contemporary Middle Eastern executive style. Best for: Lebanese market, Middle Eastern expansion, Mediterranean appeal." },
+      "Layla": { role: "Executive Director", age: 42, description: "Lebanese-Emirati female with golden olive skin, natural waves. Modern modest luxury with cultural elements. Best for: UAE Lebanese community, Middle Eastern female representation." },
+      "Li-Chen": { role: "Investment Executive", age: 42, description: "Hong Kong female with refined features, sleek professional styling. Sharp power suits with Asian precision. Best for: Hong Kong market, East-West bridge, financial authority." },
+      "Marcus": { role: "Distinguished Mentor", age: 54, description: "Caucasian executive with salt-and-pepper hair, cerulean blue eyes. Tom Ford suits, commanding 6'1\" presence. Best for: luxury positioning, mentorship narratives, UAE market." },
+      "Mei-Lin": { role: "Innovation Analyst", age: 27, description: "Taiwanese female with sleek dark hair, bright intelligent eyes. Taipei creative contemporary style. Best for: Taiwan innovation, tech-finance, creative market approaches." },
+      "Mike": { role: "Regional Manager", age: 42, description: "Caucasian male with receding hairline, practical eyeglasses, dad-body build. Accessible casual professional. Best for: middle-class trust-building, realistic success, work-life balance." },
+      "Monica": { role: "Analyst", age: 31, description: "Black woman with Afro-Caribbean heritage, natural protective hairstyles, authentic features. Casual professional basics. Best for: trust-building, authentic relatability, real workplace energy." },
+      "Omar": { role: "Strategic Advisor", age: 45, description: "Emirati male with olive skin, silver-threaded beard. Modern kandora with cultural accents. Best for: UAE resonance, heritage-meets-innovation, strategic wisdom." },
+      "Rafael": { role: "Investment Strategist", age: 46, description: "Brazilian male with bronze skin, salt-and-pepper styling. Premium São Paulo tailoring. Best for: Brazilian market leadership, LATAM expansion, executive sophistication." },
+      "Sarah": { role: "Authentic Professional", age: 49, description: "Mixed heritage female with natural silver strands, lived-in elegance. Sophisticated but approachable wear. Best for: trust-building, relatability, everyday trader appeal." },
+      "Sophia": { role: "Cultural Connector", age: 26, description: "Mixed Asian-European female with modern styling. Global contemporary with cultural fusion. Best for: global market appeal, cultural connectivity, international positioning." },
+      "Wei-Ming": { role: "Financial Strategist", age: 44, description: "Taiwanese male with angular features, silver-threaded temples, contemporary eyewear. Minimalist luxury. Best for: Taiwan market, precision messaging, tech-finance." },
+      "Kenji": { role: "Innovative Thinker", age: 29, description: "Japanese-American male with clean modern aesthetic, angular features. Architectural minimalist clothing. Best for: tech content, innovation messaging, future-forward positioning." },
+      "Sofia": { role: "Latina Creative Professional", age: 28, description: "Latina female with espresso hair, warm amber eyes. Avant-garde silhouettes with architectural blazers. Best for: trend identification, creative approaches, younger demographics." }
+    };
+
+    function updateCharacterInfo(folderName) {
+      var infoBox = $("character-info");
+      var char = CHARACTER_DATA[folderName];
+
+      if (char && folderName !== "All") {
+        $("char-name").textContent = folderName;
+        $("char-role").textContent = char.role;
+        $("char-age").textContent = "Age " + char.age;
+        $("char-description").textContent = char.description;
+        infoBox.classList.add("visible");
+      } else {
+        infoBox.classList.remove("visible");
+      }
+    }
 
     // State
     var catalog = new Map();
@@ -296,9 +384,10 @@
           });
       };
       
-      $("category").onchange = function(){ 
+      $("category").onchange = function(){
         current = $("category").value;
-        renderGrid(); 
+        updateCharacterInfo(current);
+        renderGrid();
       };
       
       $("sortOrder").onchange = function(){
@@ -635,8 +724,13 @@
       check.innerHTML = "✓";
       overlay.appendChild(check);
       
+      var info = document.createElement("div");
+      info.className = "image-info";
+      info.textContent = filename;
+
       card.appendChild(img);
       card.appendChild(overlay);
+      card.appendChild(info);
       
       // Store for positioning after load
       pendingImages.push({
